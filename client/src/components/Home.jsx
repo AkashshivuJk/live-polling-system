@@ -7,58 +7,66 @@ const Home = () => {
   return (
     <div
       style={{
-        width: '100%',
         minHeight: '100vh',
-        background: '#FFF',
+        padding: '40px 16px',
+        background: '#fff',
+        fontFamily: 'Sora, sans-serif',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '40px 20px',
-        fontFamily: 'Sora, sans-serif',
         boxSizing: 'border-box',
       }}
     >
-      <h1 style={{ fontSize: '32px', fontWeight: 700, textAlign: 'center' }}>
-        Welcome to the <span style={{ fontWeight: 800 }}>Live Polling System</span>
-      </h1>
-      <p
+      <h1
         style={{
-          fontSize: '18px',
-          color: 'rgba(0,0,0,0.6)',
+          fontSize: '28px',
+          fontWeight: 700,
           textAlign: 'center',
-          maxWidth: '600px',
-          marginTop: '10px',
+          marginBottom: '12px',
+          lineHeight: '1.2',
         }}
       >
-        Please select the role that best describes you to begin using the live polling system.
+        Welcome to <br />
+        <span style={{ color: '#6D50E2' }}>Live Polling System</span>
+      </h1>
+
+      <p
+        style={{
+          fontSize: '16px',
+          color: '#555',
+          textAlign: 'center',
+          maxWidth: '500px',
+          marginBottom: '30px',
+        }}
+      >
+        Please choose your role to begin.
       </p>
 
-      {/* Cards container */}
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
           gap: '20px',
-          marginTop: '50px',
           width: '100%',
-          maxWidth: '700px',
+          maxWidth: '500px',
         }}
       >
         {/* Student Card */}
         <div
           onClick={() => navigate('/enter-name')}
           style={{
-            padding: '20px',
-            border: '3px solid #7765DA',
-            borderRadius: '10px',
+            padding: '18px',
+            border: '2px solid #7451B6',
+            borderRadius: '12px',
+            background: '#f9f9f9',
             cursor: 'pointer',
-            background: '#F9F9F9',
-            transition: 'transform 0.2s',
+            transition: 'all 0.2s',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
           }}
         >
-          <h2 style={{ fontSize: '22px', fontWeight: 600 }}>I’m a Student</h2>
-          <p style={{ fontSize: '16px', color: '#555' }}>
-            Join a live session, answer questions, and view real-time results.
+          <h2 style={{ fontSize: '20px', margin: 0 }}>🎓 I’m a Student</h2>
+          <p style={{ fontSize: '15px', margin: '8px 0 0', color: '#666' }}>
+            Join polls, answer live questions, and see how you did.
           </p>
         </div>
 
@@ -66,17 +74,18 @@ const Home = () => {
         <div
           onClick={() => navigate('/teacher')}
           style={{
-            padding: '20px',
-            border: '1px solid #D9D9D9',
-            borderRadius: '10px',
+            padding: '18px',
+            border: '2px solid #CCC',
+            borderRadius: '12px',
+            background: '#f9f9f9',
             cursor: 'pointer',
-            background: '#F9F9F9',
-            transition: 'transform 0.2s',
+            transition: 'all 0.2s',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
           }}
         >
-          <h2 style={{ fontSize: '22px', fontWeight: 600 }}>I’m a Teacher</h2>
-          <p style={{ fontSize: '16px', color: '#555' }}>
-            Create polls, view live results, and manage your class in real-time.
+          <h2 style={{ fontSize: '20px', margin: 0 }}>👩‍🏫 I’m a Teacher</h2>
+          <p style={{ fontSize: '15px', margin: '8px 0 0', color: '#666' }}>
+            Create polls and see student responses in real-time.
           </p>
         </div>
       </div>
