@@ -14,14 +14,36 @@ const Teacher = () => {
   const [pollHistory, setPollHistory] = useState([]);
 
   useEffect(() => {
-    socket.on('update_results', (answers) => {
+    // 🔗 Join as teacher when component mounts
+    socket.emit('teacher:join', { teacherId: 'teacher-1' });
+
+    // ✅ Receive full poll state (when first joined OR after update)
+    socket.on('poll_state', (state) => {
+      setCurrentQuestion(state.currentQuestion || null);
+      setResults(state.liveResults || {});
+    });
+
+    // ✅ Live results update
+    socket.on('live_results', (answers) => {
       setResults(answers);
     });
 
+    // ✅ Question ended, update history
+    socket.on('question_ended', (finalResults) => {
+      if (currentQuestion) {
+        const completedPoll = { ...currentQuestion, results: finalResults };
+        setPollHistory((prev) => [...prev, completedPoll]);
+      }
+      setCurrentQuestion(null);
+      setResults({});
+    });
+
     return () => {
-      socket.off('update_results');
+      socket.off('poll_state');
+      socket.off('live_results');
+      socket.off('question_ended');
     };
-  }, []);
+  }, [currentQuestion]);
 
   const handleOptionChange = (value, index) => {
     const newOptions = [...options];
@@ -42,13 +64,13 @@ const Teacher = () => {
     }
 
     const data = {
-      text: question,
+      question,
       options,
       correctIndex: correctOptionIndex,
-      duration: timer,
+      timeLimit: timer,
     };
 
-    socket.emit('send_question', data);
+    socket.emit('teacher:create_question', data);
     setCurrentQuestion(data);
     setResults({});
     toast.success('✅ Poll sent!');
@@ -60,12 +82,9 @@ const Teacher = () => {
 
   const handleClosePoll = () => {
     if (currentQuestion) {
-      const completedPoll = { ...currentQuestion, results };
-      setPollHistory((prev) => [...prev, completedPoll]);
+      socket.emit('teacher:end_question');
+      toast.info('⏹ Poll ended.');
     }
-    setCurrentQuestion(null);
-    setResults({});
-    socket.emit('question_complete');
   };
 
   return (
@@ -154,7 +173,6 @@ const Teacher = () => {
           <option value={30}>30 seconds</option>
           <option value={45}>45 seconds</option>
           <option value={60}>60 seconds</option>
-{/*           <option value={90}>90 seconds</option> */}
         </select>
       </div>
 
@@ -202,7 +220,7 @@ const Teacher = () => {
           <h2>📜 Past Polls</h2>
           {pollHistory.map((poll, idx) => (
             <div key={idx} style={{ marginBottom: '30px' }}>
-              <h4>Q{idx + 1}: {poll.text}</h4>
+              <h4>Q{idx + 1}: {poll.question}</h4>
               <LiveResults question={poll} answers={poll.results} />
             </div>
           ))}
