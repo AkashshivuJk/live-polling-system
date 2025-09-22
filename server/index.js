@@ -1,12 +1,9 @@
-// server/index.js
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const { Server } = require('socket.io');
 const pollRoutes = require('./routes/pollRoutes');
 const Poll = require('./models/Poll');
-app.set('pollInstance', poll);
-
 
 const app = express();
 app.use(cors());
@@ -27,62 +24,54 @@ const io = new Server(server, {
 
 // Single Poll manager (memory)
 const poll = new Poll(io);
+app.set('pollInstance', poll);
 
 io.on('connection', (socket) => {
   console.log('New socket connected:', socket.id);
 
-  // Teacher joins a special room
+  // --- 🔗 TEACHER JOIN ---
   socket.on('teacher:join', ({ teacherId }) => {
     socket.join('teachers');
     console.log('Teacher joined:', teacherId || socket.id);
-    // send current state to teacher
     socket.emit('poll_state', poll.getStateForTeacher());
   });
 
-  // Student joins — provide name (unique per tab)
+  // --- 🔗 STUDENT JOIN ---
   socket.on('student:join', ({ name }) => {
-    // try to register student
     const added = poll.addStudent(socket.id, name);
     if (!added.ok) {
       socket.emit('student:join_error', { message: added.message });
       return;
     }
     socket.join('students');
-    // send current question state to this student
     socket.emit('poll_state', poll.getStateForStudent(name));
-    // broadcast updated student list to teachers
     io.to('teachers').emit('students_list', poll.getStudents());
     console.log(`Student joined: ${name} (${socket.id})`);
   });
 
-  // Teacher creates a question (poll)
+  // --- 📝 TEACHER CREATES QUESTION ---
   socket.on('teacher:create_question', ({ question, options = [], timeLimit = 60 }) => {
     const created = poll.createQuestion({ question, options, timeLimit });
     if (!created.ok) {
       socket.emit('teacher:create_error', { message: created.message });
       return;
     }
-    // broadcast new question to students
     io.to('students').emit('question_started', poll.getPublicQuestion());
-    // broadcast new state to teachers
     io.to('teachers').emit('poll_state', poll.getStateForTeacher());
   });
 
-  // Student submits answer
+  // --- 📨 STUDENT SUBMITS ANSWER ---
   socket.on('student:submit_answer', ({ name, answerIndex }) => {
     const submitted = poll.submitAnswer(name, answerIndex);
     if (!submitted.ok) {
       socket.emit('student:submit_error', { message: submitted.message });
       return;
     }
-    // ack to student
     socket.emit('student:submit_ack', { ok: true });
-    // update teachers with live results (partial)
     io.to('teachers').emit('live_results', poll.getLiveResults());
-    // if all answered, server will auto-close and broadcast final results via poll internals
   });
 
-  // Teacher can force end the question early
+  // --- 🛑 TEACHER ENDS QUESTION EARLY ---
   socket.on('teacher:end_question', () => {
     const ended = poll.endCurrentQuestion('teacher');
     if (ended) {
@@ -91,23 +80,50 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Teacher can remove a student by name
+  // --- 🧹 TEACHER REMOVES STUDENT ---
   socket.on('teacher:remove_student', ({ name }) => {
     const removed = poll.removeStudentByName(name);
     io.to('teachers').emit('students_list', poll.getStudents());
     io.to('students').emit('student_removed', { name });
-    // attempt to disconnect any socket with that name
     if (removed.socketId) {
       io.sockets.sockets.get(removed.socketId)?.disconnect(true);
     }
   });
 
-  // Client requests poll history (teacher)
+  // --- 📜 POLL HISTORY REQUEST ---
   socket.on('teacher:get_history', () => {
     socket.emit('poll_history', poll.getHistory());
   });
 
-  // Disconnect
+  // --- 💬 CHAT FEATURE ---
+  socket.on('registerName', (name, isTeacher) => {
+    socket.data.name = name;
+    socket.data.isTeacher = isTeacher;
+  });
+
+  socket.on('chatMessage', (message) => {
+    const payload = {
+      sender: socket.data.name || 'Anonymous',
+      isTeacher: socket.data.isTeacher,
+      message,
+      timestamp: new Date().toISOString(),
+    };
+
+    if (socket.data.isTeacher) {
+      // Teacher → broadcast to all students
+      socket.broadcast.emit('chatMessage', payload);
+    } else {
+      // Student → send only to teacher(s)
+      io.sockets.sockets.forEach((s) => {
+        if (s.data?.isTeacher) s.emit('chatMessage', payload);
+      });
+    }
+
+    // Echo back to sender
+    socket.emit('chatMessage', payload);
+  });
+
+  // --- 🔌 DISCONNECT ---
   socket.on('disconnect', () => {
     const removed = poll.removeStudentBySocket(socket.id);
     if (removed) {
