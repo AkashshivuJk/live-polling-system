@@ -14,26 +14,26 @@ const Teacher = () => {
   const [pollHistory, setPollHistory] = useState([]);
 
   useEffect(() => {
-    // 🔗 Join as teacher when component mounts
+    // 🔗 Join as teacher once on mount
     socket.emit('teacher:join', { teacherId: 'teacher-1' });
 
-    // ✅ Receive full poll state (when first joined OR after update)
+    // ✅ Receive full poll state
     socket.on('poll_state', (state) => {
       setCurrentQuestion(state.currentQuestion || null);
       setResults(state.liveResults || {});
     });
 
     // ✅ Live results update
-    socket.on('live_results', (answers) => {
-      setResults(answers);
-    });
+    socket.on('live_results', (answers) => setResults(answers));
 
     // ✅ Question ended, update history
     socket.on('question_ended', (finalResults) => {
-      if (currentQuestion) {
-        const completedPoll = { ...currentQuestion, results: finalResults };
-        setPollHistory((prev) => [...prev, completedPoll]);
-      }
+      setPollHistory((prev) => {
+        if (currentQuestion) {
+          return [...prev, { ...currentQuestion, results: finalResults }];
+        }
+        return prev;
+      });
       setCurrentQuestion(null);
       setResults({});
     });
@@ -43,7 +43,7 @@ const Teacher = () => {
       socket.off('live_results');
       socket.off('question_ended');
     };
-  }, [currentQuestion]);
+  }, []);
 
   const handleOptionChange = (value, index) => {
     const newOptions = [...options];
@@ -75,6 +75,7 @@ const Teacher = () => {
     setResults({});
     toast.success('✅ Poll sent!');
 
+    // Reset form
     setQuestion('');
     setOptions(['', '']);
     setCorrectOptionIndex(null);
@@ -92,6 +93,7 @@ const Teacher = () => {
       <ToastContainer />
       <h1 style={{ fontSize: '30px', marginBottom: '20px' }}>🧑‍🏫 Create a Poll</h1>
 
+      {/* Question Input */}
       <div style={{ marginBottom: '20px' }}>
         <label style={{ fontSize: '18px' }}>Question</label>
         <textarea
@@ -111,6 +113,7 @@ const Teacher = () => {
         />
       </div>
 
+      {/* Options Input */}
       <div style={{ marginBottom: '20px' }}>
         <label style={{ fontSize: '18px' }}>Options</label>
         {options.map((opt, idx) => (
@@ -158,6 +161,7 @@ const Teacher = () => {
         )}
       </div>
 
+      {/* Timer */}
       <div style={{ marginBottom: '20px' }}>
         <label style={{ fontSize: '18px' }}>Time Duration</label>
         <select
@@ -176,6 +180,7 @@ const Teacher = () => {
         </select>
       </div>
 
+      {/* Broadcast Button */}
       <button
         onClick={handleBroadcast}
         style={{
@@ -192,8 +197,8 @@ const Teacher = () => {
         Ask Question
       </button>
 
-      {/* ✅ Live Poll Results */}
-      {currentQuestion && Object.keys(results).length > 0 && (
+      {/* Live Poll Results */}
+      {currentQuestion && (
         <div style={{ marginTop: '40px' }}>
           <LiveResults question={currentQuestion} answers={results} />
           <button
@@ -214,7 +219,7 @@ const Teacher = () => {
         </div>
       )}
 
-      {/* ✅ Poll History */}
+      {/* Poll History */}
       {pollHistory.length > 0 && (
         <div style={{ marginTop: '60px' }}>
           <h2>📜 Past Polls</h2>
