@@ -1,65 +1,35 @@
-import React from 'react';
+import React, { useEffect, useState } from "react";
 
-const LiveResults = ({ question, answers }) => {
-  const totalVotes = Object.keys(answers).length;
-  const voteCounts = question.options.map(
-    (opt) => Object.values(answers).filter((ans) => ans === opt).length
-  );
+const LivePoll = ({ activePoll, onTimeUp }) => {
+  const [timeLeft, setTimeLeft] = useState(activePoll.timeLimit || 60);
 
-  const getPercentage = (count) =>
-    totalVotes === 0 ? 0 : Math.round((count / totalVotes) * 100);
+  useEffect(() => {
+    if (!activePoll) return;
+
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          onTimeUp(); // call backend or socket event to close poll
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [activePoll]);
 
   return (
-    <div style={{ marginTop: '40px' }}>
-      <h2 style={{ fontSize: '22px', fontFamily: 'Sora', fontWeight: 600 }}>
-        Live Poll Results
-      </h2>
+    <div>
+      <h2 className="text-xl font-bold">{activePoll.question}</h2>
+      <p className="text-sm text-gray-600 mb-2">
+        Time left: {timeLeft}s
+      </p>
 
-      <p style={{ fontSize: '18px', marginBottom: '20px' }}>{question.text}</p>
-
-      {question.options.map((option, idx) => {
-        const count = voteCounts[idx];
-        const percentage = getPercentage(count);
-        const isCorrect = idx === question.correctIndex;
-
-        return (
-          <div key={idx} style={{ marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontWeight: 500 }}>{option}</span>
-              <span>{percentage}% ({count} vote{count !== 1 ? 's' : ''})</span>
-            </div>
-
-            <div
-              style={{
-                height: '18px',
-                borderRadius: '6px',
-                background: '#e0e0e0',
-                marginTop: '4px',
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  width: `${percentage}%`,
-                  height: '100%',
-                  background: isCorrect
-                    ? 'linear-gradient(90deg, #4CAF50, #81C784)'
-                    : '#8F64E1',
-                  transition: 'width 0.5s ease',
-                }}
-              />
-            </div>
-
-            {isCorrect && (
-              <div style={{ color: '#4CAF50', fontSize: '14px', marginTop: '4px' }}>
-                ✅ Correct Answer
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {/* Options UI here */}
     </div>
   );
 };
 
-export default LiveResults;
+export default LivePoll;
