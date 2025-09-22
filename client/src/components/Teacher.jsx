@@ -14,34 +14,12 @@ const Teacher = () => {
   const [pollHistory, setPollHistory] = useState([]);
 
   useEffect(() => {
-    // 🔗 Join as teacher once on mount
-    socket.emit('teacher:join', { teacherId: 'teacher-1' });
-
-    // ✅ Receive full poll state
-    socket.on('poll_state', (state) => {
-      setCurrentQuestion(state.currentQuestion || null);
-      setResults(state.liveResults || {});
-    });
-
-    // ✅ Live results update
-    socket.on('live_results', (answers) => setResults(answers));
-
-    // ✅ Question ended, update history
-    socket.on('question_ended', (finalResults) => {
-      setPollHistory((prev) => {
-        if (currentQuestion) {
-          return [...prev, { ...currentQuestion, results: finalResults }];
-        }
-        return prev;
-      });
-      setCurrentQuestion(null);
-      setResults({});
+    socket.on('update_results', (answers) => {
+      setResults(answers);
     });
 
     return () => {
-      socket.off('poll_state');
-      socket.off('live_results');
-      socket.off('question_ended');
+      socket.off('update_results');
     };
   }, []);
 
@@ -64,18 +42,17 @@ const Teacher = () => {
     }
 
     const data = {
-      question,
+      text: question,
       options,
       correctIndex: correctOptionIndex,
-      timeLimit: timer,
+      duration: timer,
     };
 
-    socket.emit('teacher:create_question', data);
+    socket.emit('send_question', data);
     setCurrentQuestion(data);
     setResults({});
     toast.success('✅ Poll sent!');
 
-    // Reset form
     setQuestion('');
     setOptions(['', '']);
     setCorrectOptionIndex(null);
@@ -83,9 +60,12 @@ const Teacher = () => {
 
   const handleClosePoll = () => {
     if (currentQuestion) {
-      socket.emit('teacher:end_question');
-      toast.info('⏹ Poll ended.');
+      const completedPoll = { ...currentQuestion, results };
+      setPollHistory((prev) => [...prev, completedPoll]);
     }
+    setCurrentQuestion(null);
+    setResults({});
+    socket.emit('question_complete');
   };
 
   return (
@@ -93,7 +73,6 @@ const Teacher = () => {
       <ToastContainer />
       <h1 style={{ fontSize: '30px', marginBottom: '20px' }}>🧑‍🏫 Create a Poll</h1>
 
-      {/* Question Input */}
       <div style={{ marginBottom: '20px' }}>
         <label style={{ fontSize: '18px' }}>Question</label>
         <textarea
@@ -113,7 +92,6 @@ const Teacher = () => {
         />
       </div>
 
-      {/* Options Input */}
       <div style={{ marginBottom: '20px' }}>
         <label style={{ fontSize: '18px' }}>Options</label>
         {options.map((opt, idx) => (
@@ -161,7 +139,6 @@ const Teacher = () => {
         )}
       </div>
 
-      {/* Timer */}
       <div style={{ marginBottom: '20px' }}>
         <label style={{ fontSize: '18px' }}>Time Duration</label>
         <select
@@ -177,10 +154,10 @@ const Teacher = () => {
           <option value={30}>30 seconds</option>
           <option value={45}>45 seconds</option>
           <option value={60}>60 seconds</option>
+{/*           <option value={90}>90 seconds</option> */}
         </select>
       </div>
 
-      {/* Broadcast Button */}
       <button
         onClick={handleBroadcast}
         style={{
@@ -197,8 +174,8 @@ const Teacher = () => {
         Ask Question
       </button>
 
-      {/* Live Poll Results */}
-      {currentQuestion && (
+      {/* ✅ Live Poll Results */}
+      {currentQuestion && Object.keys(results).length > 0 && (
         <div style={{ marginTop: '40px' }}>
           <LiveResults question={currentQuestion} answers={results} />
           <button
@@ -219,13 +196,13 @@ const Teacher = () => {
         </div>
       )}
 
-      {/* Poll History */}
+      {/* ✅ Poll History */}
       {pollHistory.length > 0 && (
         <div style={{ marginTop: '60px' }}>
           <h2>📜 Past Polls</h2>
           {pollHistory.map((poll, idx) => (
             <div key={idx} style={{ marginBottom: '30px' }}>
-              <h4>Q{idx + 1}: {poll.question}</h4>
+              <h4>Q{idx + 1}: {poll.text}</h4>
               <LiveResults question={poll} answers={poll.results} />
             </div>
           ))}
