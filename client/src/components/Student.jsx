@@ -36,10 +36,16 @@ const Student = () => {
   const [results, setResults] = useState(null);
   const [showResult, setShowResult] = useState(false);
 
+  // 💬 Chat State
+  const [messages, setMessages] = useState([]);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+
   // Send student name on join
   useEffect(() => {
     if (name) {
-      socket.emit('student_joined', name);
+      socket.emit('student:join', { name });
+      socket.emit('registerName', name, false); // 👈 Register name for chat
     }
   }, [name]);
 
@@ -57,13 +63,15 @@ const Student = () => {
     socket.on('new_question', handleQuestion);
     socket.on('send_question', handleQuestion);
 
-    socket.on('update_results', (data) => {
-      setResults(data);
-    });
+    socket.on('update_results', (data) => setResults(data));
 
-    // DO NOT reset the question on 'question_complete'
     socket.on('question_complete', () => {
       console.log('✅ Question complete event received (ignored)');
+    });
+
+    // 💬 Listen for chat messages
+    socket.on('chatMessage', (msg) => {
+      setMessages((prev) => [...prev, msg]);
     });
 
     return () => {
@@ -71,6 +79,7 @@ const Student = () => {
       socket.off('send_question', handleQuestion);
       socket.off('update_results');
       socket.off('question_complete');
+      socket.off('chatMessage');
     };
   }, []);
 
@@ -88,7 +97,7 @@ const Student = () => {
 
   const handleSubmit = () => {
     if (!answer) return;
-    socket.emit('submit_answer', { name, answer });
+    socket.emit('student:submit_answer', { name, answerIndex: answer });
     setSubmitted(true);
     setShowResult(true);
   };
@@ -107,6 +116,12 @@ const Student = () => {
       sessionStorage.setItem('studentName', name.trim());
       setName(name.trim());
     }
+  };
+
+  const handleSendChat = () => {
+    if (!chatInput.trim()) return;
+    socket.emit('chatMessage', chatInput);
+    setChatInput('');
   };
 
   if (!sessionStorage.getItem('studentName')) {
@@ -218,6 +233,83 @@ const Student = () => {
         )
       ) : (
         <WaitingScreen message="Waiting for the teacher to start the poll..." />
+      )}
+
+      {/* 💬 Chat Button & Window */}
+      <button
+        onClick={() => setChatOpen(!chatOpen)}
+        style={{
+          position: 'fixed',
+          bottom: 20,
+          right: 20,
+          background: '#8F64E1',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '50%',
+          width: 60,
+          height: 60,
+          fontSize: 24,
+          cursor: 'pointer',
+          boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
+        }}
+      >
+        💬
+      </button>
+
+      {chatOpen && (
+        <div style={{
+          position: 'fixed',
+          bottom: 90,
+          right: 20,
+          width: 300,
+          background: '#fff',
+          borderRadius: 10,
+          boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
+          display: 'flex',
+          flexDirection: 'column',
+          maxHeight: '50vh',
+          overflow: 'hidden'
+        }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: 10 }}>
+            {messages.length === 0 && <p style={{ textAlign: 'center', color: '#888' }}>No messages yet</p>}
+            {messages.map((msg, idx) => (
+              <div key={idx} style={{ marginBottom: 8 }}>
+                <strong style={{ color: msg.isTeacher ? '#1D68BD' : '#8F64E1' }}>
+                  {msg.sender}:
+                </strong>{" "}
+                {msg.message}
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', borderTop: '1px solid #ddd' }}>
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
+              placeholder="Type a message..."
+              style={{
+                flex: 1,
+                border: 'none',
+                padding: 10,
+                fontSize: 14,
+                outline: 'none'
+              }}
+            />
+            <button
+              onClick={handleSendChat}
+              style={{
+                background: '#8F64E1',
+                color: '#fff',
+                border: 'none',
+                padding: '0 15px',
+                cursor: 'pointer'
+              }}
+            >
+              ➤
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
