@@ -5,6 +5,8 @@ const cors = require('cors');
 const { Server } = require('socket.io');
 const pollRoutes = require('./routes/pollRoutes');
 const Poll = require('./models/Poll');
+app.set('pollInstance', poll);
+
 
 const app = express();
 app.use(cors());
